@@ -19,6 +19,10 @@ import {
   expressionToSequence,
   optimizedSequenceToRawSequence,
 } from 'src/utils/macro-api/macro-api.common';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faPen, faTrash, faSave, faCopy, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { IconButtonContainer, IconButtonUnfilledContainer as IconButton } from 'src/components/inputs/icon-button';
+import { IconButtonTooltip } from 'src/components/inputs/tooltip';
 
 const Container = styled.div`
   position: absolute;
@@ -253,6 +257,23 @@ export const ProfileBar: React.FC = () => {
     snapshotAndSave(selectedName);
   }, [selectedName, snapshotAndSave]);
 
+  // Keyboard shortcut: Save (Cmd+S on macOS, Ctrl+S on others)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const key = (e.key || '').toLowerCase();
+      const isSave = key === 's';
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      if (isSave && ((isMac && e.metaKey) || (!isMac && e.ctrlKey))) {
+        e.preventDefault();
+        try {
+          onSave();
+        } catch {}
+      }
+    };
+    window.addEventListener('keydown', handler as any);
+    return () => window.removeEventListener('keydown', handler as any);
+  }, [onSave]);
+
   const openNameDialog = useCallback(
     (mode: 'add' | 'saveas' | 'rename', title: string, initial?: string) => {
       setNameDialogMode(mode);
@@ -394,30 +415,60 @@ export const ProfileBar: React.FC = () => {
               isClearable
             />
           </div>
-          <AccentButton onClick={onAdd}>Add</AccentButton>
-          <AccentButton onClick={onRename} disabled={!selectedName || selectedName === 'Default'}>
-            Rename
-          </AccentButton>
-          <AccentButton onClick={onDelete} disabled={!selectedName || selectedName === 'Default'}>
-            Delete
-          </AccentButton>
-          <PrimaryAccentButton
+          <IconButton aria-label="New profile" onClick={onAdd} title="New profile">
+            <FontAwesomeIcon icon={faPlus} />
+            <IconButtonTooltip>New profile</IconButtonTooltip>
+          </IconButton>
+
+          <IconButton
+            aria-label="Rename profile"
+            onClick={onRename}
+            disabled={!selectedName || selectedName === 'Default'}
+            title="Rename profile"
+          >
+            <FontAwesomeIcon icon={faPen} />
+            <IconButtonTooltip>Rename profile</IconButtonTooltip>
+          </IconButton>
+
+          <IconButton
+            aria-label="Delete profile"
+            onClick={onDelete}
+            disabled={!selectedName || selectedName === 'Default'}
+            title="Delete profile"
+          >
+            <FontAwesomeIcon icon={faTrash} />
+            <IconButtonTooltip>Delete profile</IconButtonTooltip>
+          </IconButton>
+
+          <IconButtonContainer
+            aria-label="Apply to device"
             onClick={() => {
               loadIntoPreview();
               applyToDevice();
             }}
             disabled={!selectedName}
+            title="Apply to device"
           >
-            Apply to Device
-          </PrimaryAccentButton>
+            <FontAwesomeIcon icon={faUpload} />
+            <IconButtonTooltip>Apply to device</IconButtonTooltip>
+          </IconButtonContainer>
         </InlineRow>
         {isDirty && (
           <InlineRow>
             <DirtyPill>Unsaved changes</DirtyPill>
-            <PrimaryAccentButton onClick={onSave} disabled={!selectedName}>
-              Save
-            </PrimaryAccentButton>
-            <AccentButton onClick={onSaveAs}>Save As</AccentButton>
+            <IconButtonContainer
+              aria-label="Save changes"
+              onClick={onSave}
+              disabled={!selectedName}
+              title="Save changes (Cmd/Ctrl+S)"
+            >
+              <FontAwesomeIcon icon={faSave} />
+              <IconButtonTooltip>Save changes</IconButtonTooltip>
+            </IconButtonContainer>
+            <IconButton aria-label="Save as new profile" onClick={onSaveAs} title="Save as new profile">
+              <FontAwesomeIcon icon={faCopy} />
+              <IconButtonTooltip>Save as new profile</IconButtonTooltip>
+            </IconButton>
           </InlineRow>
         )}
       </Container>
