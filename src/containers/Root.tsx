@@ -16,6 +16,8 @@ export default () => (
 const RootWithAppDetector = () => {
   useEffect(() => {
     // Ensure a Default configuration profile exists for fallback
+    // Note: We can't access Redux state here directly, so Default starts empty
+    // Users should save their current configuration as "Default" to populate it
     try { ensureDefaultConfigurationProfileExists(); } catch {}
 
     const unsubscribe = (window as any).desktop?.onActiveAppChanged?.(

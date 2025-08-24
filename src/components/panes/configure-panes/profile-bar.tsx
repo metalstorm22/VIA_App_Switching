@@ -325,6 +325,12 @@ export const ProfileBar: React.FC = () => {
       if (!prof) return;
       if (!devicePath) return;
 
+      // Skip loading if profile has empty layers (e.g., uninitialized Default)
+      if (!prof.layers || prof.layers.length === 0) {
+        console.log(`Profile "${targetName}" has no layers, skipping preview load`);
+        return;
+      }
+
       // Update keymap preview
       const layersPayload = prof.layers.map((l) => ({
         keymap: l,
@@ -348,6 +354,12 @@ export const ProfileBar: React.FC = () => {
       if (!targetName || !selectedDevice) return;
       const prof = getConfigurationProfile(targetName);
       if (!prof) return;
+
+      // Skip applying if profile has empty layers (e.g., uninitialized Default)
+      if (!prof.layers || prof.layers.length === 0) {
+        console.log(`Profile "${targetName}" has no layers, skipping device apply`);
+        return;
+      }
 
       // Write keymaps to device
       dispatch(saveRawKeymapToDevice(prof.layers, selectedDevice) as any);

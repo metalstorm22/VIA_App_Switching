@@ -302,13 +302,21 @@ export const renameConfigurationProfile = (oldName: string, newName: string) => 
 };
 
 // Ensure a default configuration profile exists for fallback behavior
-export const ensureDefaultConfigurationProfileExists = () => {
+export const ensureDefaultConfigurationProfileExists = (
+  currentLayers?: number[][],
+  currentMacros?: string[],
+) => {
   try {
     const all = getAllConfigurationProfiles();
     if (!all || !all['Default']) {
+      // Initialize Default with current device state if available, otherwise empty
+      const defaultProfile = {
+        layers: currentLayers || [],
+        macros: currentMacros || [],
+      };
       deviceStore.set(
         'configurationProfiles' as any,
-        {...(all || {}), Default: {layers: [], macros: []}} as any,
+        {...(all || {}), Default: defaultProfile} as any,
       );
     }
   } catch (e) {
