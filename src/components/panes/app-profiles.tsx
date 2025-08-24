@@ -128,7 +128,7 @@ export function AppProfilesPane() {
     if (!currentApp?.bundleId) return;
     upsertAppProfileMapping(currentApp.bundleId, {
       profile: newProfileName || 'Default',
-      deviceVpid: bindToDevice ? selectedDevice?.vendorProductId : undefined,
+      deviceVpid: bindToDevice && selectedDevice && typeof selectedDevice === 'object' && 'vendorProductId' in selectedDevice ? (selectedDevice as any).vendorProductId : undefined,
     });
     const updated = getAppProfiles()?.mappings || {};
     setMappings(updated);
@@ -140,7 +140,7 @@ export function AppProfilesPane() {
     if (!bid) return;
     upsertAppProfileMapping(bid, {
       profile: newProfileName || 'Default',
-      deviceVpid: bindToDevice ? selectedDevice?.vendorProductId : undefined,
+      deviceVpid: bindToDevice && selectedDevice && typeof selectedDevice === 'object' && 'vendorProductId' in selectedDevice ? (selectedDevice as any).vendorProductId : undefined,
     });
     const updated = getAppProfiles()?.mappings || {};
     setMappings(updated);
@@ -239,41 +239,6 @@ export function AppProfilesPane() {
               />
             </div>
             <AccentButton onClick={() => removeMapping(bundleId)}>Remove</AccentButton>
-          </Row>
-        ))}
-        <h3 style={{marginTop: 16}}>Macro Profiles</h3>
-        {Object.keys(macroProfiles).length === 0 && (
-          <div style={{opacity: 0.8}}>No macro profiles saved yet</div>
-        )}
-        {Object.entries(macroProfiles).map(([name, exprs]) => (
-          <Row key={name}>
-            <strong style={{minWidth: 140}}>{name}</strong>
-            <span style={{opacity: 0.8, flex: 1}}>macros: {exprs.length}</span>
-            <button
-              onClick={() => {
-                const next = prompt('Rename profile', name) || '';
-                if (!next || next === name) return;
-                renameMacroProfile(name, next);
-                setMacroProfiles(getAllMacroProfiles());
-                const updated = getAppProfiles()?.mappings || {};
-                setMappings(updated);
-                dispatchRedux(setMappingsRedux(updated));
-              }}
-            >
-              Rename
-            </button>
-            <button
-              onClick={() => {
-                if (!confirm(`Delete profile "${name}"?`)) return;
-                deleteMacroProfile(name);
-                setMacroProfiles(getAllMacroProfiles());
-                const updated = getAppProfiles()?.mappings || {};
-                setMappings(updated);
-                dispatchRedux(setMappingsRedux(updated));
-              }}
-            >
-              Delete
-            </button>
           </Row>
         ))}
       </List>
