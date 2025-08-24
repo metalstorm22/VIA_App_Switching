@@ -5,9 +5,9 @@ import {AccentButton, PrimaryAccentButton} from 'src/components/inputs/accent-bu
 import TextInput from 'src/components/inputs/text-input';
 import {ModalContainer, PromptText} from 'src/components/inputs/dialog-base';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
-import {getExpressions, saveMacrosSuccess} from 'src/store/macrosSlice';
-import {getSelectedRawLayers, saveKeymapSuccess} from 'src/store/keymapSlice';
-import {getSelectedDevicePath} from 'src/store/devicesSlice';
+import {getExpressions, saveMacros, saveMacrosSuccess} from 'src/store/macrosSlice';
+import {getSelectedRawLayers, saveKeymapSuccess, saveRawKeymapToDevice} from 'src/store/keymapSlice';
+import {getSelectedDevicePath, getSelectedConnectedDevice} from 'src/store/devicesSlice';
 import {
   getAllConfigurationProfiles,
   getConfigurationProfile,
@@ -196,6 +196,7 @@ function deepEqualArrays(a: any[], b: any[]): boolean {
 export const ProfileBar: React.FC = () => {
   const dispatch = useAppDispatch();
   const devicePath = useAppSelector(getSelectedDevicePath);
+  const selectedDevice = useAppSelector(getSelectedConnectedDevice);
   const layers = useAppSelector(getSelectedRawLayers); // Layer[]
   const currentLayers: number[][] = useMemo(
     () => (layers || []).map((l) => ((l && l.keymap) || []) as number[]),
@@ -340,6 +341,22 @@ export const ProfileBar: React.FC = () => {
     [dispatch, selectedName, devicePath],
   );
 
+  // Apply profile to the connected device (writes to keyboard)
+  const applyToDevice = useCallback(
+    (profileName?: string) => {
+      const targetName = profileName ?? selectedName;
+      if (!targetName || !selectedDevice) return;
+      const prof = getConfigurationProfile(targetName);
+      if (!prof) return;
+
+      // Write keymaps to device
+      dispatch(saveRawKeymapToDevice(prof.layers, selectedDevice) as any);
+      // Write macros to device
+      dispatch(saveMacros(selectedDevice, prof.macros) as any);
+    },
+    [dispatch, selectedName, selectedDevice],
+  );
+
   return (
     <>
       <Container>
@@ -354,8 +371,9 @@ export const ProfileBar: React.FC = () => {
                 const name = opt?.value || null;
                 setSelectedName(name);
                 if (name) {
-                  // Auto-load selection into preview
+                  // Auto-load selection into preview and apply to device
                   loadIntoPreview(name);
+                  applyToDevice(name);
                 }
               }}
               isClearable
@@ -368,8 +386,14 @@ export const ProfileBar: React.FC = () => {
           <AccentButton onClick={onDelete} disabled={!selectedName}>
             Delete
           </AccentButton>
-          <PrimaryAccentButton onClick={() => loadIntoPreview()} disabled={!selectedName}>
-            Load
+          <PrimaryAccentButton
+            onClick={() => {
+              loadIntoPreview();
+              applyToDevice();
+            }}
+            disabled={!selectedName}
+          >
+            Apply to Device
           </PrimaryAccentButton>
         </InlineRow>
         {isDirty && (
