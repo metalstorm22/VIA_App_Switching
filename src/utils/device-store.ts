@@ -216,3 +216,30 @@ export const setMacroProfile = (profile: string, expressions: string[]) => {
   const all = getAllMacroProfiles();
   deviceStore.set('macroProfiles' as any, {...all, [profile]: expressions} as any);
 };
+export const deleteMacroProfile = (profile: string) => {
+  const all = getAllMacroProfiles();
+  const {[profile]: _removed, ...rest} = all;
+  deviceStore.set('macroProfiles' as any, rest as any);
+  // Remove any app mappings that referenced this profile
+  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const filtered = Object.fromEntries(
+    Object.entries(ap.mappings || {}).filter(([, v]: any) => v?.profile !== profile),
+  );
+  setAppProfiles({...ap, mappings: filtered});
+};
+export const renameMacroProfile = (oldName: string, newName: string) => {
+  if (!newName || oldName === newName) return;
+  const all = getAllMacroProfiles();
+  if (!all[oldName]) return;
+  const { [oldName]: exprs, ...rest } = all as any;
+  deviceStore.set('macroProfiles' as any, {...rest, [newName]: exprs} as any);
+  // Update mappings to point to the new profile name
+  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const updated = Object.fromEntries(
+    Object.entries(ap.mappings || {}).map(([k, v]: any) => [
+      k,
+      v?.profile === oldName ? {...v, profile: newName} : v,
+    ]),
+  );
+  setAppProfiles({...ap, mappings: updated});
+};

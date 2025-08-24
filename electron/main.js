@@ -1,5 +1,7 @@
 const {app, BrowserWindow, session, Tray, Menu, nativeImage, ipcMain} = require('electron');
 const {execFile} = require('child_process');
+const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 
 let mainWindow;
@@ -177,6 +179,15 @@ function setupIPC() {
   ipcMain.handle('app:get-active-app', () => {
     return lastActive;
   });
+  ipcMain.handle('app:list-apps', async () => {
+    try {
+      const apps = await listInstalledApplications();
+      return apps;
+    } catch (e) {
+      try { console.warn('Failed listing apps', e?.message || e); } catch {}
+      return [];
+    }
+  });
 }
 
 app.whenReady().then(async () => {
@@ -256,4 +267,92 @@ function startAppleScriptAppDetector() {
   // Seed once and poll
   tick();
   setInterval(tick, 1000);
+}
+
+// Scans common Applications folders for .app bundles and extracts bundleId + name
+let cachedApps = null;
+async function listInstalledApplications() {
+  if (cachedApps) return cachedApps;
+  const roots = [
+    '/Applications',
+    path.join(process.env.HOME || '', 'Applications'),
+    '/System/Applications',
+  ].filter(Boolean);
+  const found = new Map();
+  for (const root of roots) {
+    await scanDirForApps(root, found).catch(() => {});
+  }
+  cachedApps = Array.from(found.values()).sort((a, b) =>
+    (a.name || '').localeCompare(b.name || ''),
+  );
+  return cachedApps;
+}
+
+async function scanDirForApps(dir, found, depth = 0) {
+  if (depth > 2) return; // limit recursion
+  let entries = [];
+  try {
+    entries = await fsp.readdir(dir, {withFileTypes: true});
+  } catch { return; }
+  for (const ent of entries) {
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory() && ent.name.endsWith('.app')) {
+      try {
+        const {bundleId, name} = await getBundleInfo(full);
+        if (bundleId && !found.has(bundleId)) {
+          found.set(bundleId, {bundleId, name, path: full});
+        }
+      } catch {}
+    } else if (ent.isDirectory()) {
+      await scanDirForApps(full, found, depth + 1).catch(() => {});
+    }
+  }
+}
+
+function execPlistToJson(plistPath) {
+  return new Promise((resolve, reject) => {
+    execFile('plutil', ['-convert', 'json', '-o', '-', plistPath], {timeout: 3000}, (err, stdout) => {
+      if (err) return reject(err);
+      try { resolve(JSON.parse(stdout.toString('utf8'))); }
+      catch (e) { reject(e); }
+    });
+  });
+}
+
+async function getBundleInfo(appPath) {
+  // Try plutil first
+  const infoPlist = path.join(appPath, 'Contents', 'Info.plist');
+  try {
+    const res = await execPlistToJson(infoPlist);
+    const bundleId = res['CFBundleIdentifier'] || '';
+    const name = res['CFBundleName'] || res['CFBundleDisplayName'] || path.basename(appPath).replace(/\.app$/, '');
+    return {bundleId, name};
+  } catch {}
+  // Fallback to mdls metadata
+  try {
+    const {bundleId, name} = await execMdls(appPath);
+    return {bundleId, name: name || path.basename(appPath).replace(/\.app$/, '')};
+  } catch {}
+  return {bundleId: '', name: ''};
+}
+
+function execMdls(appPath) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'mdls',
+      ['-name', 'kMDItemCFBundleIdentifier', '-name', 'kMDItemDisplayName', appPath],
+      {timeout: 3000},
+      (err, stdout) => {
+        if (err) return reject(err);
+        try {
+          const text = stdout.toString('utf8');
+          const idMatch = text.match(/kMDItemCFBundleIdentifier\s=\s"([^"]+)"/);
+          const nameMatch = text.match(/kMDItemDisplayName\s=\s"([^"]+)"/);
+          resolve({bundleId: idMatch ? idMatch[1] : '', name: nameMatch ? nameMatch[1] : ''});
+        } catch (e) {
+          reject(e);
+        }
+      },
+    );
+  });
 }
