@@ -1,4 +1,5 @@
 const {app, BrowserWindow, session, Tray, Menu, nativeImage, ipcMain} = require('electron');
+const {execFile} = require('child_process');
 const path = require('path');
 
 let mainWindow;
@@ -173,6 +174,9 @@ function setupIPC() {
     if (typeof vpid === 'string') allowedHidDevices.add(vpid);
     return true;
   });
+  ipcMain.handle('app:get-active-app', () => {
+    return lastActive;
+  });
 }
 
 app.whenReady().then(async () => {
@@ -204,7 +208,8 @@ function startAppDetector() {
   try {
     activeWin = require('active-win');
   } catch (e) {
-    console.warn('active-win is not installed; app-aware switching disabled');
+    console.warn('active-win not available; falling back to AppleScript polling');
+    startAppleScriptAppDetector();
     return;
   }
   const tick = async () => {
@@ -220,5 +225,35 @@ function startAppDetector() {
       }
     } catch {}
   };
+  // Seed once immediately
+  tick();
+  setInterval(tick, 1000);
+}
+
+function startAppleScriptAppDetector() {
+  const script = `tell application "System Events"
+    set _p to first process whose frontmost is true
+    set _bid to (bundle identifier of _p) as text
+    set _name to (name of _p) as text
+    return _bid & "|" & _name
+  end tell`;
+  const tick = () => {
+    try {
+      execFile('osascript', ['-e', script], (err, stdout) => {
+        if (err) return; // likely missing permissions; silently ignore
+        const out = (stdout || '').trim();
+        if (!out) return;
+        const [bundleId, name] = out.split('|');
+        if (bundleId && bundleId !== lastActive.bundleId) {
+          lastActive = {bundleId, name: name || ''};
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('active-app-changed', lastActive);
+          }
+        }
+      });
+    } catch {}
+  };
+  // Seed once and poll
+  tick();
   setInterval(tick, 1000);
 }

@@ -5,7 +5,14 @@ import {
   setAppProfilesEnabled,
   upsertAppProfileMapping,
   removeAppProfileMapping,
+  getAllMacroProfiles,
+  setMacroProfile,
 } from 'src/utils/device-store';
+import {useAppSelector} from 'src/store/hooks';
+import {getExpressions} from 'src/store/macrosSlice';
+import {useDispatch} from 'react-redux';
+import {setEnabled as setEnabledRedux, setMappings as setMappingsRedux} from 'src/store/appProfilesSlice';
+import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
 
 const Container = styled.div`
   padding: 16px;
@@ -21,12 +28,39 @@ const List = styled.div`
 `;
 
 export function AppProfilesPane() {
+  const dispatchRedux = useDispatch();
   const [enabled, setEnabled] = useState<boolean>(getAppProfiles()?.enabled || false);
   const [mappings, setMappings] = useState(() => getAppProfiles()?.mappings || {});
   const [currentApp, setCurrentApp] = useState<{bundleId: string; name: string} | null>(null);
+  const [macroProfiles, setMacroProfiles] = useState<Record<string, string[]>>(
+    () => getAllMacroProfiles() || {},
+  );
+  const currentExpressions = useAppSelector(getExpressions);
+  const selectedDevice = useAppSelector(getSelectedConnectedDevice);
+  const [bindToDevice, setBindToDevice] = useState<boolean>(true);
   const mappingEntries = useMemo(() => Object.entries(mappings || {}), [mappings]);
 
   useEffect(() => {
+    // Prime current app with a few retries in case IPC isn't ready yet
+    let retries = 10;
+    const tryPrime = () => {
+      window.desktop?.getActiveApp?.()
+        .then((data) => {
+          if (data && data.bundleId) {
+            setCurrentApp(data);
+          } else if (retries > 0) {
+            retries -= 1;
+            setTimeout(tryPrime, 300);
+          }
+        })
+        .catch(() => {
+          if (retries > 0) {
+            retries -= 1;
+            setTimeout(tryPrime, 300);
+          }
+        });
+    };
+    tryPrime();
     const unsubscribe = window.desktop?.onActiveAppChanged?.((data) => {
       setCurrentApp(data);
       // Minimal demo action: if enabled and mapping exists, just log it
@@ -43,19 +77,30 @@ export function AppProfilesPane() {
     const next = !enabled;
     setEnabled(next);
     setAppProfilesEnabled(next);
+    dispatchRedux(setEnabledRedux(next));
   };
 
   const addCurrentApp = () => {
     if (!currentApp?.bundleId) return;
-    upsertAppProfileMapping(currentApp.bundleId, {profile: 'Default'});
+    upsertAppProfileMapping(currentApp.bundleId, {
+      profile: 'Default',
+      deviceVpid: bindToDevice ? selectedDevice?.vendorProductId : undefined,
+    });
     const updated = getAppProfiles()?.mappings || {};
     setMappings(updated);
+    dispatchRedux(setMappingsRedux(updated));
+  };
+
+  const saveCurrentAsDefaultProfile = () => {
+    setMacroProfile('Default', currentExpressions);
+    setMacroProfiles(getAllMacroProfiles());
   };
 
   const removeMapping = (bundleId: string) => {
     removeAppProfileMapping(bundleId);
     const updated = getAppProfiles()?.mappings || {};
     setMappings(updated);
+    dispatchRedux(setMappingsRedux(updated));
   };
 
   return (
@@ -72,6 +117,23 @@ export function AppProfilesPane() {
           Current app: {currentApp ? `${currentApp.name} (${currentApp.bundleId})` : 'Unknown'}
         </div>
         <button onClick={addCurrentApp} disabled={!currentApp?.bundleId}>Map current app to "Default"</button>
+        <button onClick={saveCurrentAsDefaultProfile}>Save current macros as "Default"</button>
+      </Row>
+      <Row>
+        <label>
+          <input
+            type="checkbox"
+            checked={bindToDevice}
+            onChange={() => setBindToDevice((v) => !v)}
+          />{' '}
+          Bind mapping to selected device
+        </label>
+        <div style={{opacity: 0.8}}>
+          Selected device:{' '}
+          {selectedDevice
+            ? `${selectedDevice.productName} (vpid ${selectedDevice.vendorProductId})`
+            : 'None'}
+        </div>
       </Row>
       <List>
         <h3>Mappings</h3>
@@ -83,11 +145,20 @@ export function AppProfilesPane() {
             <button onClick={() => removeMapping(bundleId)}>Remove</button>
           </Row>
         ))}
+        <h3 style={{marginTop: 16}}>Macro Profiles</h3>
+        {Object.keys(macroProfiles).length === 0 && (
+          <div style={{opacity: 0.8}}>No macro profiles saved yet</div>
+        )}
+        {Object.entries(macroProfiles).map(([name, exprs]) => (
+          <Row key={name}>
+            <strong style={{minWidth: 120}}>{name}</strong>
+            <span style={{opacity: 0.8}}>macros: {exprs.length}</span>
+          </Row>
+        ))}
       </List>
       <p style={{marginTop: 16, opacity: 0.8}}>
-        Note: This is a minimal MVP. Applying profiles to devices will be added next.
+        MVP: Save current macros as a profile and map the current app. When that app is active, macros auto-apply.
       </p>
     </Container>
   );
 }
-

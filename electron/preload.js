@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('desktop', {
   setOpenAtLogin: (enabled) => ipcRenderer.invoke('app:set-open-at-login', enabled),
   allowHIDForVPID: (vendorId, productId) =>
     ipcRenderer.invoke('hid:allow-vpid', `${vendorId}:${productId}`),
+  getActiveApp: () => ipcRenderer.invoke('app:get-active-app'),
   onActiveAppChanged: (cb) => {
     const listener = (_evt, data) => {
       try { cb && cb(data); } catch {}

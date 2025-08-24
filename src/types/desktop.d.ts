@@ -5,6 +5,7 @@ declare global {
     getOpenAtLogin(): Promise<boolean>;
     setOpenAtLogin(enabled: boolean): Promise<boolean>;
     allowHIDForVPID(vendorId: number, productId: number): Promise<boolean>;
+    getActiveApp(): Promise<{bundleId: string; name: string} | null>;
     onActiveAppChanged(
       cb: (data: {bundleId: string; name: string}) => void,
     ): () => void;
@@ -13,4 +14,3 @@ declare global {
     desktop?: DesktopAPI;
   }
 }
-

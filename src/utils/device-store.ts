@@ -51,6 +51,7 @@ const defaultStoreData = {
     enabled: false,
     mappings: {},
   },
+  macroProfiles: {},
 };
 
 function initDeviceStore() {
@@ -183,7 +184,7 @@ export const setSettings = (settings: Settings) => {
 
 // App Profiles store helpers
 export const getAppProfiles = () => deviceStore.get('appProfiles');
-export const setAppProfiles = (appProfiles: any) => deviceStore.set('appProfiles' as any, current(appProfiles) as any);
+export const setAppProfiles = (appProfiles: any) => deviceStore.set('appProfiles' as any, appProfiles as any);
 export const setAppProfilesEnabled = (enabled: boolean) => {
   const ap = getAppProfiles() || {enabled: false, mappings: {}};
   setAppProfiles({...ap, enabled});
@@ -202,4 +203,16 @@ export const removeAppProfileMapping = (bundleId: string) => {
   const ap = getAppProfiles() || {enabled: false, mappings: {}};
   const {[bundleId]: _, ...rest} = ap.mappings || {};
   setAppProfiles({...ap, mappings: rest});
+};
+
+// Macro profile storage (profile name -> array of macro expressions)
+export const getAllMacroProfiles = (): Record<string, string[]> =>
+  deviceStore.get('macroProfiles') || {};
+export const getMacroProfile = (profile: string): string[] | undefined => {
+  const all = getAllMacroProfiles();
+  return all[profile];
+};
+export const setMacroProfile = (profile: string, expressions: string[]) => {
+  const all = getAllMacroProfiles();
+  deviceStore.set('macroProfiles' as any, {...all, [profile]: expressions} as any);
 };
