@@ -53,9 +53,12 @@ const DirtyPill = styled.span`
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--bg_icon-highlighted);
-  color: var(--color_icon_highlighted);
+  background: var(--color_accent);
+  color: var(--color_inside-accent);
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--bg_control);
 `;
 
 const DialogContainer = styled.dialog`
