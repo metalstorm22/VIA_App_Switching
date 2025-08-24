@@ -276,6 +276,12 @@ export const deleteConfigurationProfile = (name: string) => {
   const all = getAllConfigurationProfiles();
   const {[name]: _removed, ...rest} = all;
   deviceStore.set('configurationProfiles' as any, rest as any);
+  // Remove any app mappings that referenced this configuration profile
+  const ap = getSafeAppProfiles();
+  const filtered = Object.fromEntries(
+    Object.entries(ap.mappings || {}).filter(([, v]: any) => v?.profile !== name),
+  );
+  setAppProfiles({...ap, mappings: filtered});
 };
 
 export const renameConfigurationProfile = (oldName: string, newName: string) => {
@@ -284,4 +290,28 @@ export const renameConfigurationProfile = (oldName: string, newName: string) => 
   if (!all[oldName]) return;
   const {[oldName]: value, ...rest} = all;
   deviceStore.set('configurationProfiles' as any, {...rest, [newName]: value} as any);
+  // Update app mappings to point to the new configuration profile name
+  const ap = getSafeAppProfiles();
+  const updated = Object.fromEntries(
+    Object.entries(ap.mappings || {}).map(([k, v]: any) => [
+      k,
+      v?.profile === oldName ? {...v, profile: newName} : v,
+    ]),
+  );
+  setAppProfiles({...ap, mappings: updated});
+};
+
+// Ensure a default configuration profile exists for fallback behavior
+export const ensureDefaultConfigurationProfileExists = () => {
+  try {
+    const all = getAllConfigurationProfiles();
+    if (!all || !all['Default']) {
+      deviceStore.set(
+        'configurationProfiles' as any,
+        {...(all || {}), Default: {layers: [], macros: []}} as any,
+      );
+    }
+  } catch (e) {
+    try { console.warn('Failed to ensure Default configuration profile', e); } catch {}
+  }
 };

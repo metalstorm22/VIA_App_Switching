@@ -305,7 +305,7 @@ export const ProfileBar: React.FC = () => {
   }, []);
 
   const handleConfirmDelete = useCallback(() => {
-    if (!selectedName) return;
+    if (!selectedName || selectedName === 'Default') return;
     deleteConfigurationProfile(selectedName);
     refreshProfileNames();
     setSelectedName(null);
@@ -380,10 +380,10 @@ export const ProfileBar: React.FC = () => {
             />
           </div>
           <AccentButton onClick={onAdd}>Add</AccentButton>
-          <AccentButton onClick={onRename} disabled={!selectedName}>
+          <AccentButton onClick={onRename} disabled={!selectedName || selectedName === 'Default'}>
             Rename
           </AccentButton>
-          <AccentButton onClick={onDelete} disabled={!selectedName}>
+          <AccentButton onClick={onDelete} disabled={!selectedName || selectedName === 'Default'}>
             Delete
           </AccentButton>
           <PrimaryAccentButton

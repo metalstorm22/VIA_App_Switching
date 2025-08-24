@@ -8,16 +8,17 @@ import {
   setAppProfilesEnabled,
   upsertAppProfileMapping,
   removeAppProfileMapping,
-  getAllMacroProfiles,
-  setMacroProfile,
-  deleteMacroProfile,
-  renameMacroProfile,
+  getAllConfigurationProfiles,
+  setConfigurationProfile,
+  deleteConfigurationProfile,
+  renameConfigurationProfile,
 } from 'src/utils/device-store';
 import {useAppSelector} from 'src/store/hooks';
 import {getExpressions} from 'src/store/macrosSlice';
 import {useDispatch} from 'react-redux';
 import {setEnabled as setEnabledRedux, setMappings as setMappingsRedux} from 'src/store/appProfilesSlice';
 import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
+import {getSelectedRawLayers} from 'src/store/keymapSlice';
 
 const Container = styled.div`
   padding: 16px;
@@ -65,11 +66,16 @@ export function AppProfilesPane() {
   const [enabled, setEnabled] = useState<boolean>(getAppProfiles()?.enabled || false);
   const [mappings, setMappings] = useState(() => getAppProfiles()?.mappings || {});
   const [currentApp, setCurrentApp] = useState<{bundleId: string; name: string} | null>(null);
-  const [macroProfiles, setMacroProfiles] = useState<Record<string, string[]>>(
-    () => getAllMacroProfiles() || {},
+  const [macroProfiles, setMacroProfiles] = useState<Record<string, {layers: number[][]; macros: string[]}>>(
+    () => getAllConfigurationProfiles() || {},
   );
   const currentExpressions = useAppSelector(getExpressions);
   const selectedDevice = useAppSelector(getSelectedConnectedDevice);
+  const layers = useAppSelector(getSelectedRawLayers);
+  const currentLayers = useMemo(
+    () => (layers || []).map((l) => ((l && l.keymap) || []) as number[]),
+    [layers],
+  );
   const [bindToDevice, setBindToDevice] = useState<boolean>(true);
   const [newProfileName, setNewProfileName] = useState('Default');
   const profileNames = useMemo(() => Object.keys(macroProfiles), [macroProfiles]);
@@ -150,8 +156,8 @@ export function AppProfilesPane() {
   const saveCurrentAsProfile = () => {
     const name = (newProfileName || 'Default').trim();
     if (!name) return;
-    setMacroProfile(name, currentExpressions);
-    setMacroProfiles(getAllMacroProfiles());
+    setConfigurationProfile(name, {layers: currentLayers, macros: currentExpressions});
+    setMacroProfiles(getAllConfigurationProfiles());
   };
 
   const removeMapping = (bundleId: string) => {
@@ -182,7 +188,7 @@ export function AppProfilesPane() {
           onChange={(e) => setNewProfileName(e.target.value)}
           style={{minWidth: 180, margin: 0}}
         />
-        <PrimaryAccentButton onClick={saveCurrentAsProfile}>Save current macros as profile</PrimaryAccentButton>
+        <PrimaryAccentButton onClick={saveCurrentAsProfile}>Save current configuration as profile</PrimaryAccentButton>
         <AccentButton onClick={addCurrentApp} disabled={!currentApp?.bundleId}>
           Map current app → {newProfileName || 'Default'}
         </AccentButton>
@@ -246,38 +252,42 @@ export function AppProfilesPane() {
 
       <Card>
         <Header>
-          <Title>Macro Profiles</Title>
+          <Title>Configuration Profiles</Title>
           <span style={{opacity: 0.8}}>Total: {profileNames.length}</span>
         </Header>
         {Object.keys(macroProfiles).length === 0 && (
           <div style={{opacity: 0.8}}>No macro profiles saved yet</div>
         )}
-        {Object.entries(macroProfiles).map(([name, exprs]) => (
+        {Object.entries(macroProfiles).map(([name, cfg]) => (
           <Row key={name}>
             <strong style={{minWidth: 140}}>{name}</strong>
-            <span style={{opacity: 0.8, flex: 1}}>macros: {exprs.length}</span>
+            <span style={{opacity: 0.8, flex: 1}}>
+              layers: {cfg.layers?.length || 0} • macros: {cfg.macros?.length || 0}
+            </span>
             <AccentButton
               onClick={() => {
                 const next = prompt('Rename profile', name) || '';
                 if (!next || next === name) return;
-                renameMacroProfile(name, next);
-                setMacroProfiles(getAllMacroProfiles());
+                renameConfigurationProfile(name, next);
+                setMacroProfiles(getAllConfigurationProfiles());
                 const updated = getAppProfiles()?.mappings || {};
                 setMappings(updated);
                 dispatchRedux(setMappingsRedux(updated));
               }}
+              disabled={name === 'Default'}
             >
               Rename
             </AccentButton>
             <AccentButton
               onClick={() => {
-                if (!confirm(`Delete profile \"${name}\"?`)) return;
-                deleteMacroProfile(name);
-                setMacroProfiles(getAllMacroProfiles());
+                if (!confirm(`Delete profile "${name}"?`)) return;
+                deleteConfigurationProfile(name);
+                setMacroProfiles(getAllConfigurationProfiles());
                 const updated = getAppProfiles()?.mappings || {};
                 setMappings(updated);
                 dispatchRedux(setMappingsRedux(updated));
               }}
+              disabled={name === 'Default'}
             >
               Delete
             </AccentButton>
