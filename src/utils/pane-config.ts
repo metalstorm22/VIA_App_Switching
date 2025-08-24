@@ -5,7 +5,7 @@ import {DesignTab} from '../components/panes/design';
 import {Settings} from '../components/panes/settings';
 import {Test} from '../components/panes/test';
 import {ErrorsPaneConfig} from '../components/panes/errors';
-import {AppProfilesPane} from 'src/components/panes/app-profiles';
+import {AppProfilesPane} from 'src/components/panes/app-profiles/index';
 
 export default [
   {
