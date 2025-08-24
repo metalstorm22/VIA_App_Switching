@@ -101,6 +101,8 @@ export type StoreData = {
   definitions: KeyboardDictionary;
   settings: Settings;
   appProfiles?: AppProfiles;
+  macroProfiles: Record<string, string[]>;
+  configurationProfiles: ConfigurationProfiles;
 };
 
 export type VendorProductIdMap = Record<number, {v2: boolean; v3: boolean}>;
@@ -124,3 +126,10 @@ export type AppProfiles = {
   enabled: boolean;
   mappings: Record<string, AppProfile>; // bundleId -> profile mapping
 };
+
+export type ConfigurationProfile = {
+  layers: number[][];
+  macros: string[];
+};
+
+export type ConfigurationProfiles = Record<string, ConfigurationProfile>;

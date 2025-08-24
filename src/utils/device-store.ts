@@ -52,6 +52,7 @@ const defaultStoreData = {
     mappings: {},
   },
   macroProfiles: {},
+  configurationProfiles: {},
 };
 
 function initDeviceStore() {
@@ -185,12 +186,20 @@ export const setSettings = (settings: Settings) => {
 // App Profiles store helpers
 export const getAppProfiles = () => deviceStore.get('appProfiles');
 export const setAppProfiles = (appProfiles: any) => deviceStore.set('appProfiles' as any, appProfiles as any);
+// Ensure strongly typed AppProfiles shape to avoid TS unions with inline defaults
+const getSafeAppProfiles = (): {enabled: boolean; mappings: Record<string, any>} => {
+ const ap: any = getAppProfiles();
+ if (ap && typeof ap === 'object' && 'mappings' in ap) {
+   return ap as any;
+ }
+ return {enabled: false, mappings: {}};
+};
 export const setAppProfilesEnabled = (enabled: boolean) => {
-  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const ap = getSafeAppProfiles();
   setAppProfiles({...ap, enabled});
 };
 export const upsertAppProfileMapping = (bundleId: string, profile: {profile: string; deviceVpid?: number}) => {
-  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const ap = getSafeAppProfiles();
   setAppProfiles({
     ...ap,
     mappings: {
@@ -200,7 +209,7 @@ export const upsertAppProfileMapping = (bundleId: string, profile: {profile: str
   });
 };
 export const removeAppProfileMapping = (bundleId: string) => {
-  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const ap = getSafeAppProfiles();
   const {[bundleId]: _, ...rest} = ap.mappings || {};
   setAppProfiles({...ap, mappings: rest});
 };
@@ -221,7 +230,7 @@ export const deleteMacroProfile = (profile: string) => {
   const {[profile]: _removed, ...rest} = all;
   deviceStore.set('macroProfiles' as any, rest as any);
   // Remove any app mappings that referenced this profile
-  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const ap = getSafeAppProfiles();
   const filtered = Object.fromEntries(
     Object.entries(ap.mappings || {}).filter(([, v]: any) => v?.profile !== profile),
   );
@@ -234,7 +243,7 @@ export const renameMacroProfile = (oldName: string, newName: string) => {
   const { [oldName]: exprs, ...rest } = all as any;
   deviceStore.set('macroProfiles' as any, {...rest, [newName]: exprs} as any);
   // Update mappings to point to the new profile name
-  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const ap = getSafeAppProfiles();
   const updated = Object.fromEntries(
     Object.entries(ap.mappings || {}).map(([k, v]: any) => [
       k,
@@ -242,4 +251,37 @@ export const renameMacroProfile = (oldName: string, newName: string) => {
     ]),
   );
   setAppProfiles({...ap, mappings: updated});
+};
+
+// Configuration Profiles storage (unified: keymaps + macros)
+export const getAllConfigurationProfiles = (): Record<string, {layers: number[][]; macros: string[]}> =>
+  (deviceStore.get('configurationProfiles') as any) || {};
+
+export const getConfigurationProfile = (
+  name: string,
+): {layers: number[][]; macros: string[]} | undefined => {
+  const all = getAllConfigurationProfiles();
+  return all[name];
+};
+
+export const setConfigurationProfile = (
+  name: string,
+  payload: {layers: number[][]; macros: string[]},
+) => {
+  const all = getAllConfigurationProfiles();
+  deviceStore.set('configurationProfiles' as any, {...all, [name]: payload} as any);
+};
+
+export const deleteConfigurationProfile = (name: string) => {
+  const all = getAllConfigurationProfiles();
+  const {[name]: _removed, ...rest} = all;
+  deviceStore.set('configurationProfiles' as any, rest as any);
+};
+
+export const renameConfigurationProfile = (oldName: string, newName: string) => {
+  if (!newName || oldName === newName) return;
+  const all = getAllConfigurationProfiles();
+  if (!all[oldName]) return;
+  const {[oldName]: value, ...rest} = all;
+  deviceStore.set('configurationProfiles' as any, {...rest, [newName]: value} as any);
 };
