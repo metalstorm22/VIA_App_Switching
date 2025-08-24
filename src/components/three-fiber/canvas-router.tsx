@@ -19,6 +19,7 @@ import {
   getSelectedDefinition,
 } from 'src/store/definitionsSlice';
 import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {setForceAuthorize} from 'src/store/devicesSlice';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {
   getConfigureKeyboardIsSelectable,
@@ -166,7 +167,11 @@ export const NonSuspenseCanvasRouter = () => {
             {showAuthorizeButton ? (
               !selectedDefinition ? (
                 <AccentButtonLarge
-                  onClick={() => dispatch(reloadConnectedDevices())}
+                  onClick={() => {
+                    // Ensure the HID permission dialog is triggered by a user gesture
+                    dispatch(setForceAuthorize(true));
+                    dispatch(reloadConnectedDevices());
+                  }}
                   style={{width: 'max-content'}}
                 >
                   Authorize device

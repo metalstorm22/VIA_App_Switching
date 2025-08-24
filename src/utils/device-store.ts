@@ -47,6 +47,10 @@ const defaultStoreData = {
       transpose: 0,
     },
   },
+  appProfiles: {
+    enabled: false,
+    mappings: {},
+  },
 };
 
 function initDeviceStore() {
@@ -175,4 +179,27 @@ export const getSettings = (): Settings => deviceStore.get('settings');
 
 export const setSettings = (settings: Settings) => {
   deviceStore.set('settings', current(settings));
+};
+
+// App Profiles store helpers
+export const getAppProfiles = () => deviceStore.get('appProfiles');
+export const setAppProfiles = (appProfiles: any) => deviceStore.set('appProfiles' as any, current(appProfiles) as any);
+export const setAppProfilesEnabled = (enabled: boolean) => {
+  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  setAppProfiles({...ap, enabled});
+};
+export const upsertAppProfileMapping = (bundleId: string, profile: {profile: string; deviceVpid?: number}) => {
+  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  setAppProfiles({
+    ...ap,
+    mappings: {
+      ...ap.mappings,
+      [bundleId]: profile,
+    },
+  });
+};
+export const removeAppProfileMapping = (bundleId: string) => {
+  const ap = getAppProfiles() || {enabled: false, mappings: {}};
+  const {[bundleId]: _, ...rest} = ap.mappings || {};
+  setAppProfiles({...ap, mappings: rest});
 };

@@ -1,13 +1,18 @@
 {
   "license": "GPL-3.0",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "node scripts/build-definitions.js && vite --force",
+    "dev:noforce": "node scripts/build-definitions.js && vite",
     "build": "bun run build:kbs && tsc && vite build",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\"",
     "refresh-kbs": "bun uninstall --force via-keyboards && bun install --force github:the-via/keyboards",
     "build:azure": "bun run refresh-kbs && bun run build",
     "preview": "vite preview",
+    "electron:dev": "VITE_DEV_SERVER_URL=http://localhost:5173 concurrently \"node scripts/build-definitions.js && vite --force\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev:noforce": "VITE_DEV_SERVER_URL=http://localhost:5173 concurrently \"npm run dev:noforce\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "bun run build && electron-builder -m",
     "build:kbs": "via-keyboards public/definitions",
     "find-deadcode": "ts-prune"
   },
@@ -16,6 +21,24 @@
   },
   "overrides": {
     "typescript": "^5.6.2"
+  },
+  "build": {
+    "appId": "app.usevia.desktop",
+    "files": [
+      "dist/**",
+      "public/**",
+      "electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "electron/entitlements.plist",
+      "entitlementsInherit": "electron/entitlements.plist"
+    }
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.3.0",
@@ -32,6 +55,7 @@
     "@the-via/pelpi": "^0.0.3",
     "@the-via/reader": "^1.9.0",
     "@webscopeio/react-textarea-autocomplete": "^4.9.2",
+    "active-win": "^9.0.0",
     "downshift": "^7.2.1",
     "idb-keyval": "^6.2.0",
     "json-stringify-pretty-compact": "^4.0.0",
@@ -62,9 +86,12 @@
     "@types/wicg-file-system-access": "^2020.9.5",
     "@vitejs/plugin-react": "^3.1.0",
     "concurrently": "^7.6.0",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.9.1",
     "husky": "^8.0.3",
     "typescript": "^5.6.2",
     "vite": "^4.1.4",
-    "vite-plugin-html": "^3.2.0"
+    "vite-plugin-html": "^3.2.0",
+    "wait-on": "^7.2.0"
   }
 }

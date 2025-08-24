@@ -2,6 +2,7 @@ export type GistResponse = {
   description: string;
   files: {[k: string]: {filename: string}};
 }[];
+const ENABLED = !!(import.meta as any).env?.VITE_ENABLE_GITHUB;
 const random_state = Math.random().toString();
 let resolvable: (value: unknown) => any;
 
@@ -15,6 +16,9 @@ function onMessage(evt: MessageEvent) {
   }
 }
 export async function authGithub() {
+  if (!ENABLED) {
+    throw new Error('GitHub integration is disabled in this build');
+  }
   const isLocalhost = location.hostname === 'localhost';
   const redirect_uri = isLocalhost
     ? 'http://localhost:8080/github_oauth.html'
@@ -34,6 +38,9 @@ export async function authGithub() {
 }
 
 const ghAPI = async (url: string) => {
+  if (!ENABLED) {
+    throw new Error('GitHub integration is disabled in this build');
+  }
   const ghReq = await fetch(`https://api.github.com/${url}`, {
     headers: {
       Authorization: `token ${localStorage.getItem('gh_token')}`,
@@ -48,11 +55,17 @@ const ghAPI = async (url: string) => {
 };
 
 export async function getUser() {
+  if (!ENABLED) {
+    throw new Error('GitHub integration is disabled in this build');
+  }
   const resp = await ghAPI('user');
   return resp;
 }
 
 export async function getKLEFiles() {
+  if (!ENABLED) {
+    return [] as unknown as GistResponse;
+  }
   const resp: GistResponse = await ghAPI('gists');
   return resp.filter((gistResp) => {
     const files = Object.values(gistResp.files);

@@ -100,6 +100,7 @@ export type StoreData = {
   definitionIndex: DefinitionIndex;
   definitions: KeyboardDictionary;
   settings: Settings;
+  appProfiles?: AppProfiles;
 };
 
 export type VendorProductIdMap = Record<number, {v2: boolean; v3: boolean}>;
@@ -113,3 +114,13 @@ export type DefinitionIndex = Pick<
 };
 
 export type EncoderBehavior = [number, number, number];
+
+export type AppProfile = {
+  profile: string; // placeholder name or identifier
+  deviceVpid?: number; // optional vendorProductId to scope mapping
+};
+
+export type AppProfiles = {
+  enabled: boolean;
+  mappings: Record<string, AppProfile>; // bundleId -> profile mapping
+};

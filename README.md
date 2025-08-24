@@ -50,6 +50,27 @@ You can find it at [https://github.com/cebby2420/via-desktop](https://github.com
 
 **NOTE: This project has no official affiliation with VIA, and we cannot provide support for it.**
 
+## Desktop (Electron) scaffolding
+
+This repo now includes basic Electron scaffolding for a Mac-first offline desktop build:
+
+- Entry points in `electron/main.js` and `electron/preload.js`
+- Tray menu and login item control
+- WebHID permission handling in the Electron session
+
+Dev/start scripts are provided but require installing `electron` and `electron-builder`.
+
+Quick start:
+
+1. Install deps: `npm install` (or `bun install`) to fetch Electron packages
+2. Dev run: `npm run electron:dev`
+3. Build app: `npm run electron:build` (outputs a macOS `.dmg`)
+
+Notes:
+
+- GitHub features are disabled by default in builds unless `VITE_ENABLE_GITHUB=true` is set.
+- External font dependencies were removed; the app uses local/system fonts.
+
 ## Facing Issues?
 
 If you encounter any issues or bugs while using the [VIA web application](https://usevia.app), please report them by opening an issue in the [Issues section](https://github.com/the-via/app/issues). This will help us to track down and resolve problems, and improve the VIA experience for everyone.

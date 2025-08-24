@@ -34,6 +34,7 @@ import {
 } from 'src/store/keymapSlice';
 import {useDispatch} from 'react-redux';
 import {reloadConnectedDevices} from 'src/store/devicesThunks';
+import {setForceAuthorize} from 'src/store/devicesSlice';
 import {getV3MenuComponents} from 'src/store/menusSlice';
 import {getIsMacroFeatureSupported} from 'src/store/macrosSlice';
 import {getConnectedDevices, getSupportedIds} from 'src/store/devicesSlice';
@@ -167,8 +168,14 @@ const Loader: React.FC<{
   return (
     <LoaderPane>
       {<ChippyLoader theme={theme} progress={loadProgress || null} />}
-      {(showButton || noConnectedDevices) && !noSupportedIds && !isElectron ? (
-        <AccentButtonLarge onClick={() => dispatch(reloadConnectedDevices())}>
+      {(showButton || noConnectedDevices) && !noSupportedIds ? (
+        <AccentButtonLarge
+          onClick={() => {
+            // Ensure HID request runs under a user gesture
+            dispatch(setForceAuthorize(true));
+            dispatch(reloadConnectedDevices());
+          }}
+        >
           Authorize device
           <FontAwesomeIcon style={{marginLeft: '10px'}} icon={faPlus} />
         </AccentButtonLarge>

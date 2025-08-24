@@ -1,0 +1,16 @@
+export {}; // ensure this file is a module
+
+declare global {
+  interface DesktopAPI {
+    getOpenAtLogin(): Promise<boolean>;
+    setOpenAtLogin(enabled: boolean): Promise<boolean>;
+    allowHIDForVPID(vendorId: number, productId: number): Promise<boolean>;
+    onActiveAppChanged(
+      cb: (data: {bundleId: string; name: string}) => void,
+    ): () => void;
+  }
+  interface Window {
+    desktop?: DesktopAPI;
+  }
+}
+
