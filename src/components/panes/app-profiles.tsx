@@ -1,5 +1,8 @@
 import {useEffect, useMemo, useState} from 'react';
 import styled from 'styled-components';
+import {AccentSelect} from '../inputs/accent-select';
+import {AccentButton, PrimaryAccentButton} from '../inputs/accent-button';
+import TextInput from '../inputs/text-input';
 import {
   getAppProfiles,
   setAppProfilesEnabled,
@@ -27,6 +30,34 @@ const Row = styled.div`
 `;
 const List = styled.div`
   margin-top: 12px;
+`;
+
+const Card = styled.div`
+  background: var(--bg_menu);
+  border: 1px solid var(--bg_control);
+  border-radius: 10px;
+  padding: 16px;
+`;
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+`;
+
+const Title = styled.h3`
+  margin: 0;
+`;
+
+const Chip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg_icon-highlighted);
+  color: var(--color_icon_highlighted);
+  font-size: 12px;
 `;
 
 export function AppProfilesPane() {
@@ -132,40 +163,38 @@ export function AppProfilesPane() {
 
   return (
     <Container>
-      <h2>App Profiles (Mac)</h2>
-      <p>Automatically switch profiles based on the active app.</p>
+      <Card>
+        <Header>
+          <Title>App Profiles (Mac)</Title>
+          <label>
+            <input type="checkbox" checked={enabled} onChange={toggleEnabled} /> Enable
+          </label>
+        </Header>
+        <Row>
+          <span style={{opacity: 0.8}}>Current app:</span>
+          <Chip>{currentApp ? `${currentApp.name} • ${currentApp.bundleId}` : 'Unknown'}</Chip>
+          <AccentButton onClick={() => window.desktop?.listApps?.().then((apps) => setAvailableApps(apps || []))}>Refresh Apps</AccentButton>
+        </Row>
       <Row>
-        <label>
-          <input type="checkbox" checked={enabled} onChange={toggleEnabled} /> Enable app-aware switching
-        </label>
-      </Row>
-      <Row>
-        <div style={{opacity: 0.8}}>
-          Current app: {currentApp ? `${currentApp.name} (${currentApp.bundleId})` : 'Unknown'}
-        </div>
-        <input
+        <TextInput
           placeholder="Profile name"
           value={newProfileName}
           onChange={(e) => setNewProfileName(e.target.value)}
-          style={{minWidth: 160}}
+          style={{minWidth: 180, margin: 0}}
         />
-        <button onClick={saveCurrentAsProfile}>Save current macros as profile</button>
-        <button onClick={addCurrentApp} disabled={!currentApp?.bundleId}>
+        <PrimaryAccentButton onClick={saveCurrentAsProfile}>Save current macros as profile</PrimaryAccentButton>
+        <AccentButton onClick={addCurrentApp} disabled={!currentApp?.bundleId}>
           Map current app → {newProfileName || 'Default'}
-        </button>
-        <select
-          value={selectedBundleId}
-          onChange={(e) => setSelectedBundleId(e.target.value)}
-          style={{minWidth: 240}}
-        >
-          <option value="">Select installed app…</option>
-          {availableApps.map((a) => (
-            <option key={a.bundleId} value={a.bundleId}>
-              {a.name} ({a.bundleId})
-            </option>
-          ))}
-        </select>
-        <button onClick={addSelectedApp} disabled={!selectedBundleId && !currentApp?.bundleId}>Map selected app</button>
+        </AccentButton>
+        <div style={{minWidth: 320, flex: 1}}>
+          <AccentSelect
+            placeholder="Select installed app…"
+            options={availableApps.map((a) => ({value: a.bundleId, label: `${a.name} (${a.bundleId})`}))}
+            onChange={(opt: any) => setSelectedBundleId(opt?.value || '')}
+            isClearable
+          />
+        </div>
+        <PrimaryAccentButton onClick={addSelectedApp} disabled={!selectedBundleId && !currentApp?.bundleId}>Map selected app</PrimaryAccentButton>
       </Row>
       <Row>
         <label>
@@ -194,25 +223,22 @@ export function AppProfilesPane() {
                 {value.deviceVpid ? `Bound to vpid ${value.deviceVpid}` : 'Any device'}
               </div>
             </div>
-            <select
-              value={value.profile}
-              onChange={(e) => {
-                upsertAppProfileMapping(bundleId, {
-                  ...value,
-                  profile: e.target.value,
-                });
-                const updated = getAppProfiles()?.mappings || {};
-                setMappings(updated);
-                dispatchRedux(setMappingsRedux(updated));
-              }}
-            >
-              {profileNames.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <button onClick={() => removeMapping(bundleId)}>Remove</button>
+            <div style={{minWidth: 220}}>
+              <AccentSelect
+                options={profileNames.map((n) => ({value: n, label: n}))}
+                value={{value: value.profile, label: value.profile}}
+                onChange={(opt: any) => {
+                  upsertAppProfileMapping(bundleId, {
+                    ...value,
+                    profile: opt?.value || value.profile,
+                  });
+                  const updated = getAppProfiles()?.mappings || {};
+                  setMappings(updated);
+                  dispatchRedux(setMappingsRedux(updated));
+                }}
+              />
+            </div>
+            <AccentButton onClick={() => removeMapping(bundleId)}>Remove</AccentButton>
           </Row>
         ))}
         <h3 style={{marginTop: 16}}>Macro Profiles</h3>
@@ -251,9 +277,48 @@ export function AppProfilesPane() {
           </Row>
         ))}
       </List>
-      <p style={{marginTop: 16, opacity: 0.8}}>
-        Flow: Save current macros as a named profile, map apps to profiles (optionally device-bound), and profiles auto-apply on app switch.
-      </p>
+      </Card>
+
+      <Card>
+        <Header>
+          <Title>Macro Profiles</Title>
+          <span style={{opacity: 0.8}}>Total: {profileNames.length}</span>
+        </Header>
+        {Object.keys(macroProfiles).length === 0 && (
+          <div style={{opacity: 0.8}}>No macro profiles saved yet</div>
+        )}
+        {Object.entries(macroProfiles).map(([name, exprs]) => (
+          <Row key={name}>
+            <strong style={{minWidth: 140}}>{name}</strong>
+            <span style={{opacity: 0.8, flex: 1}}>macros: {exprs.length}</span>
+            <AccentButton
+              onClick={() => {
+                const next = prompt('Rename profile', name) || '';
+                if (!next || next === name) return;
+                renameMacroProfile(name, next);
+                setMacroProfiles(getAllMacroProfiles());
+                const updated = getAppProfiles()?.mappings || {};
+                setMappings(updated);
+                dispatchRedux(setMappingsRedux(updated));
+              }}
+            >
+              Rename
+            </AccentButton>
+            <AccentButton
+              onClick={() => {
+                if (!confirm(`Delete profile \"${name}\"?`)) return;
+                deleteMacroProfile(name);
+                setMacroProfiles(getAllMacroProfiles());
+                const updated = getAppProfiles()?.mappings || {};
+                setMappings(updated);
+                dispatchRedux(setMappingsRedux(updated));
+              }}
+            >
+              Delete
+            </AccentButton>
+          </Row>
+        ))}
+      </Card>
     </Container>
   );
 }
