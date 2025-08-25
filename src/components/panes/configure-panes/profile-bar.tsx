@@ -7,7 +7,7 @@ import {ModalContainer, PromptText} from 'src/components/inputs/dialog-base';
 import {useAppDispatch, useAppSelector} from 'src/store/hooks';
 import {getExpressions, saveMacros, saveMacrosSuccess} from 'src/store/macrosSlice';
 import {getSelectedRawLayers, saveKeymapSuccess, saveRawKeymapToDevice} from 'src/store/keymapSlice';
-import {getSelectedDevicePath, getSelectedConnectedDevice} from 'src/store/devicesSlice';
+import {getSelectedDevicePath, getSelectedConnectedDevice, getSelectedKeyboardAPI} from 'src/store/devicesSlice';
 import {
   getAllConfigurationProfiles,
   getConfigurationProfile,
@@ -15,6 +15,8 @@ import {
   deleteConfigurationProfile,
   renameConfigurationProfile,
 } from 'src/utils/device-store';
+import {getSelectedDefinition} from 'src/store/definitionsSlice';
+import {readEncoderValues, applyEncoderValues} from 'src/utils/encoders';
 import {
   expressionToSequence,
   optimizedSequenceToRawSequence,
@@ -204,12 +206,42 @@ export const ProfileBar: React.FC = () => {
   const dispatch = useAppDispatch();
   const devicePath = useAppSelector(getSelectedDevicePath);
   const selectedDevice = useAppSelector(getSelectedConnectedDevice);
+  const api = useAppSelector(getSelectedKeyboardAPI);
+  const selectedDefinition = useAppSelector(getSelectedDefinition);
   const layers = useAppSelector(getSelectedRawLayers); // Layer[]
   const currentLayers: number[][] = useMemo(
     () => (layers || []).map((l) => ((l && l.keymap) || []) as number[]),
     [layers],
   );
   const currentMacros = useAppSelector(getExpressions); // string[]
+  const [currentEncoders, setCurrentEncoders] = useState<[number, number][][]>([]);
+  // Keep a live snapshot of encoder mappings from the device so we can detect unsaved changes
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!api || !selectedDefinition) {
+        if (!cancelled) setCurrentEncoders([]);
+        return;
+      }
+      try {
+        const enc = await readEncoderValues(api, selectedDefinition, currentLayers.length);
+        if (!cancelled) setCurrentEncoders(enc || []);
+      } catch {
+        if (!cancelled) setCurrentEncoders([]);
+      }
+    };
+    load();
+    const onEncoderChanged = () => load();
+    try {
+      window.addEventListener('via:encoder-mapping-changed', onEncoderChanged as any);
+    } catch {}
+    return () => {
+      cancelled = true;
+      try {
+        window.removeEventListener('via:encoder-mapping-changed', onEncoderChanged as any);
+      } catch {}
+    };
+  }, [api, selectedDefinition, currentLayers.length]);
 
   const [profileNames, setProfileNames] = useState<string[]>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -230,8 +262,9 @@ export const ProfileBar: React.FC = () => {
     if (!selectedProfile) return false;
     const sameLayers = deepEqualArrays(selectedProfile.layers, currentLayers);
     const sameMacros = deepEqualArrays(selectedProfile.macros, currentMacros);
-    return !(sameLayers && sameMacros);
-  }, [selectedProfile, currentLayers, currentMacros]);
+    const sameEncoders = deepEqualArrays(selectedProfile.encoders || [], currentEncoders || []);
+    return !(sameLayers && sameMacros && sameEncoders);
+  }, [selectedProfile, currentLayers, currentMacros, currentEncoders]);
 
   const refreshProfileNames = useCallback(() => {
     const all = getAllConfigurationProfiles();
@@ -247,14 +280,21 @@ export const ProfileBar: React.FC = () => {
   }, []);
 
   const snapshotAndSave = useCallback(
-    (name: string) => {
-      setConfigurationProfile(name, {layers: currentLayers, macros: currentMacros});
+    async (name: string) => {
+      let encoders: [number, number][][] = [];
+      try {
+        if (api && selectedDefinition) {
+          const layerCount = currentLayers.length;
+          encoders = await readEncoderValues(api, selectedDefinition, layerCount);
+        }
+      } catch {}
+      setConfigurationProfile(name, {layers: currentLayers, macros: currentMacros, encoders});
       refreshProfileNames();
-  }, [currentLayers, currentMacros, refreshProfileNames]);
+  }, [api, selectedDefinition, currentLayers, currentMacros, refreshProfileNames]);
 
-  const onSave = useCallback(() => {
+  const onSave = useCallback(async () => {
     if (!selectedName) return;
-    snapshotAndSave(selectedName);
+    await snapshotAndSave(selectedName);
   }, [selectedName, snapshotAndSave]);
 
   // Keyboard shortcut: Save (Cmd+S on macOS, Ctrl+S on others)
@@ -304,13 +344,13 @@ export const ProfileBar: React.FC = () => {
   }, [selectedName, openNameDialog]);
 
   const handleNameDialogConfirm = useCallback(
-    (name: string) => {
+    async (name: string) => {
       if (!nameDialogMode) return;
       const trimmed = (name || '').trim();
       if (!trimmed) return;
 
       if (nameDialogMode === 'add' || nameDialogMode === 'saveas') {
-        snapshotAndSave(trimmed);
+        await snapshotAndSave(trimmed);
         setSelectedName(trimmed);
       } else if (nameDialogMode === 'rename' && selectedName) {
         renameConfigurationProfile(selectedName, trimmed);
@@ -373,7 +413,7 @@ export const ProfileBar: React.FC = () => {
 
   // Apply profile to the connected device (writes to keyboard)
   const applyToDevice = useCallback(
-    (profileName?: string) => {
+    async (profileName?: string) => {
       const targetName = profileName ?? selectedName;
       if (!targetName || !selectedDevice) return;
       const prof = getConfigurationProfile(targetName);
@@ -389,8 +429,14 @@ export const ProfileBar: React.FC = () => {
       dispatch(saveRawKeymapToDevice(prof.layers, selectedDevice) as any);
       // Write macros to device
       dispatch(saveMacros(selectedDevice, prof.macros) as any);
+      // Write encoders to device (best-effort)
+      try {
+        if (api && prof.encoders && prof.encoders.length > 0) {
+          await applyEncoderValues(api, prof.encoders);
+        }
+      } catch {}
     },
-    [dispatch, selectedName, selectedDevice],
+    [dispatch, selectedName, selectedDevice, api],
   );
 
   return (

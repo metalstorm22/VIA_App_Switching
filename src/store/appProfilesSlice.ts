@@ -4,6 +4,7 @@ import {getAppProfiles, getConfigurationProfile} from 'src/utils/device-store';
 import {getSelectedConnectedDevice, getSelectedKeyboardAPI} from './devicesSlice';
 import {getSelectedDefinition} from './definitionsSlice';
 import {getMacroAPI} from 'src/utils/macro-api';
+import {applyEncoderValues} from 'src/utils/encoders';
 import {expressionToSequence, optimizedSequenceToRawSequence} from 'src/utils/macro-api/macro-api.common';
 
 type ActiveApp = {bundleId: string; name: string};
@@ -122,6 +123,13 @@ export const handleActiveAppChange =
         });
         await macroApi.writeRawKeycodeSequences(sequences);
       }
+
+      // Encoders: best-effort application (optional in profile, and device may not support)
+      try {
+        if (cfg.encoders && cfg.encoders.length > 0) {
+          await applyEncoderValues(api, cfg.encoders);
+        }
+      } catch {}
 
       dispatch(setLastApplied({bundleId: app.bundleId, profile: profileName}));
       dispatch(showToast(`Applied profile "${profileName}" for ${app.name || app.bundleId}`));

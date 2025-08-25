@@ -11,6 +11,8 @@ import {THEMES} from 'src/utils/themes';
 import {Store} from '../shims/via-app-store';
 import type {
   AuthorizedDevice,
+  ConfigurationProfile,
+  ConfigurationProfiles,
   DefinitionIndex,
   Settings,
   VendorProductIdMap,
@@ -254,19 +256,19 @@ export const renameMacroProfile = (oldName: string, newName: string) => {
 };
 
 // Configuration Profiles storage (unified: keymaps + macros)
-export const getAllConfigurationProfiles = (): Record<string, {layers: number[][]; macros: string[]}> =>
+export const getAllConfigurationProfiles = (): ConfigurationProfiles =>
   (deviceStore.get('configurationProfiles') as any) || {};
 
 export const getConfigurationProfile = (
   name: string,
-): {layers: number[][]; macros: string[]} | undefined => {
+): ConfigurationProfile | undefined => {
   const all = getAllConfigurationProfiles();
   return all[name];
 };
 
 export const setConfigurationProfile = (
   name: string,
-  payload: {layers: number[][]; macros: string[]},
+  payload: ConfigurationProfile,
 ) => {
   const all = getAllConfigurationProfiles();
   deviceStore.set('configurationProfiles' as any, {...all, [name]: payload} as any);
@@ -310,9 +312,10 @@ export const ensureDefaultConfigurationProfileExists = (
     const all = getAllConfigurationProfiles();
     if (!all || !all['Default']) {
       // Initialize Default with current device state if available, otherwise empty
-      const defaultProfile = {
+      const defaultProfile: ConfigurationProfile = {
         layers: currentLayers || [],
         macros: currentMacros || [],
+        encoders: [],
       };
       deviceStore.set(
         'configurationProfiles' as any,

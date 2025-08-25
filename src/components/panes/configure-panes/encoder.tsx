@@ -71,11 +71,17 @@ export const Pane: FC = () => {
         case 'ccw': {
           api.setEncoderValue(layer, encoderId, false, val);
           setCCWValue(val);
+          try {
+            window.dispatchEvent(new CustomEvent('via:encoder-mapping-changed'));
+          } catch {}
           break;
         }
         case 'cw': {
           api.setEncoderValue(layer, encoderId, true, val);
           setCWValue(val);
+          try {
+            window.dispatchEvent(new CustomEvent('via:encoder-mapping-changed'));
+          } catch {}
           break;
         }
         case 'click': {

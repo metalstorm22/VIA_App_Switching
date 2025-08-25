@@ -8,7 +8,7 @@ import {ModalContainer, PromptText} from 'src/components/inputs/dialog-base';
 import {useAppSelector} from 'src/store/hooks';
 import {getExpressions} from 'src/store/macrosSlice';
 import {getSelectedRawLayers} from 'src/store/keymapSlice';
-import {getSelectedConnectedDevice} from 'src/store/devicesSlice';
+import {getSelectedConnectedDevice, getSelectedKeyboardAPI} from 'src/store/devicesSlice';
 import {
   setEnabled as setEnabledRedux,
   setMappings as setMappingsRedux,
@@ -23,6 +23,9 @@ import {
   deleteConfigurationProfile,
   renameConfigurationProfile,
 } from 'src/utils/device-store';
+import {getSelectedDefinition} from 'src/store/definitionsSlice';
+import {readEncoderValues} from 'src/utils/encoders';
+import type {ConfigurationProfiles} from 'src/types/types';
 
 const Container = styled.div`
   padding: 16px;
@@ -266,11 +269,13 @@ export const AppProfilesTabbedView: React.FC = () => {
   // Selected device for optional binding
   const selectedDevice = useAppSelector(getSelectedConnectedDevice);
   const [bindToDevice, setBindToDevice] = useState<boolean>(true);
+  const api = useAppSelector(getSelectedKeyboardAPI);
+  const selectedDefinition = useAppSelector(getSelectedDefinition);
 
   // Profiles (configuration, i.e., keymaps + macros)
-  const [configurationProfiles, setConfigurationProfiles] = useState<
-    Record<string, {layers: number[][]; macros: string[]}>
-  >(() => getAllConfigurationProfiles() || {});
+  const [configurationProfiles, setConfigurationProfiles] = useState<ConfigurationProfiles>(
+    () => getAllConfigurationProfiles() || {},
+  );
   const profileNames = useMemo(() => Object.keys(configurationProfiles || {}), [configurationProfiles]);
 
   // For saving current config
@@ -374,10 +379,17 @@ export const AppProfilesTabbedView: React.FC = () => {
     refreshMappingsAfterMutation();
   };
 
-  const saveCurrentAsProfile = () => {
+  const saveCurrentAsProfile = async () => {
     const name = (newProfileName || 'Default').trim();
     if (!name) return;
-    setConfigurationProfile(name, {layers: currentLayers, macros: currentExpressions});
+    let encoders: [number, number][][] = [];
+    try {
+      if (api && selectedDefinition) {
+        const layerCount = currentLayers.length;
+        encoders = await readEncoderValues(api, selectedDefinition, layerCount);
+      }
+    } catch {}
+    setConfigurationProfile(name, {layers: currentLayers, macros: currentExpressions, encoders});
     setConfigurationProfiles(getAllConfigurationProfiles());
   };
 

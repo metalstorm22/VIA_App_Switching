@@ -130,6 +130,8 @@ export type AppProfiles = {
 export type ConfigurationProfile = {
   layers: number[][];
   macros: string[];
+  // encoders[encoderId][layer] = [ccwKeycode, cwKeycode]
+  encoders?: [number, number][][];
 };
 
 export type ConfigurationProfiles = Record<string, ConfigurationProfile>;
